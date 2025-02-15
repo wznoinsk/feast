@@ -5,8 +5,8 @@ metadata:
 spec:
   feastProject: my_project
   services:
-    onlineStore: {}
-    offlineStore: {}
+    offlineStore:
+      server: {}
     ui: {}
     registry:
       remote:

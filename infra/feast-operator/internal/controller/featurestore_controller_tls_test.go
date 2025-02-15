@@ -71,18 +71,18 @@ var _ = Describe("FeatureStore Controller - Feast service TLS", func() {
 						FeastProject: feastProject,
 						Services: &feastdevv1alpha1.FeatureStoreServices{
 							OnlineStore: &feastdevv1alpha1.OnlineStore{
-								ServerConfigs: feastdevv1alpha1.ServerConfigs{
+								Server: &feastdevv1alpha1.ServerConfigs{
 									TLS: tlsConfigs,
 								},
 							},
 							OfflineStore: &feastdevv1alpha1.OfflineStore{
-								ServerConfigs: feastdevv1alpha1.ServerConfigs{
+								Server: &feastdevv1alpha1.ServerConfigs{
 									TLS: tlsConfigs,
 								},
 							},
 							Registry: &feastdevv1alpha1.Registry{
 								Local: &feastdevv1alpha1.LocalRegistryConfig{
-									ServerConfigs: feastdevv1alpha1.ServerConfigs{
+									Server: &feastdevv1alpha1.ServerConfigs{
 										TLS: tlsConfigs,
 									},
 								},
@@ -145,10 +145,10 @@ var _ = Describe("FeatureStore Controller - Feast service TLS", func() {
 			Expect(resource.Status.Conditions).NotTo(BeEmpty())
 			cond := apimeta.FindStatusCondition(resource.Status.Conditions, feastdevv1alpha1.ReadyType)
 			Expect(cond).ToNot(BeNil())
-			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(cond.Reason).To(Equal(feastdevv1alpha1.ReadyReason))
+			Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
+			Expect(cond.Reason).To(Equal(feastdevv1alpha1.DeploymentNotAvailableReason))
 			Expect(cond.Type).To(Equal(feastdevv1alpha1.ReadyType))
-			Expect(cond.Message).To(Equal(feastdevv1alpha1.ReadyMessage))
+			Expect(cond.Message).To(Equal(feastdevv1alpha1.DeploymentNotAvailableMessage))
 
 			cond = apimeta.FindStatusCondition(resource.Status.Conditions, feastdevv1alpha1.RegistryReadyType)
 			Expect(cond).ToNot(BeNil())
@@ -178,7 +178,7 @@ var _ = Describe("FeatureStore Controller - Feast service TLS", func() {
 			Expect(cond.Type).To(Equal(feastdevv1alpha1.OnlineStoreReadyType))
 			Expect(cond.Message).To(Equal(feastdevv1alpha1.OnlineStoreReadyMessage))
 
-			Expect(resource.Status.Phase).To(Equal(feastdevv1alpha1.ReadyPhase))
+			Expect(resource.Status.Phase).To(Equal(feastdevv1alpha1.PendingPhase))
 
 			// check deployment
 			deploy := &appsv1.Deployment{}
@@ -356,14 +356,14 @@ var _ = Describe("FeatureStore Controller - Feast service TLS", func() {
 				FeastProject: feastProject,
 				Services: &feastdevv1alpha1.FeatureStoreServices{
 					OnlineStore: &feastdevv1alpha1.OnlineStore{
-						ServerConfigs: feastdevv1alpha1.ServerConfigs{
+						Server: &feastdevv1alpha1.ServerConfigs{
 							TLS: &feastdevv1alpha1.TlsConfigs{
 								Disable: &disable,
 							},
 						},
 					},
 					OfflineStore: &feastdevv1alpha1.OfflineStore{
-						ServerConfigs: feastdevv1alpha1.ServerConfigs{
+						Server: &feastdevv1alpha1.ServerConfigs{
 							TLS: tlsConfigs,
 						},
 					},

@@ -25,25 +25,13 @@ spec:
       persistence:
         file:
           type: duckdb
-      envFrom:
-      - secretRef:
-          name: postgres-secret
     onlineStore:
       persistence:
         store:
           type: redis
           secretRef:
             name: feast-data-stores
-      envFrom:
-      - secretRef:
-          name: postgres-secret
-    registry:
-      local:
-        persistence:
-          store:
-            type: sql
-            secretRef:
-              name: feast-data-stores
+      server:
         envFrom:
         - secretRef:
             name: postgres-secret
@@ -54,3 +42,10 @@ spec:
           requests:
             cpu: 150m
             memory: 128Mi
+    registry:
+      local:
+        persistence:
+          store:
+            type: sql
+            secretRef:
+              name: feast-data-stores

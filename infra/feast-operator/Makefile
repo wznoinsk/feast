@@ -97,7 +97,7 @@ help: ## Display this help.
 
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:maxDescLen=0 webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd:maxDescLen=120 webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -113,12 +113,18 @@ vet: ## Run go vet against code.
 
 .PHONY: test
 test: build-installer vet lint envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v test/e2e | grep -v test/data-source-types) -coverprofile cover.out
 
 # Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
 .PHONY: test-e2e  # Run the e2e tests against a Kind k8s instance that is spun up.
 test-e2e:
 	go test -timeout 30m ./test/e2e/ -v -ginkgo.v
+
+# Requires python3
+.PHONY: test-datasources
+test-datasources:
+	python3 test/data-source-types/data-source-types.py
+	go test ./test/data-source-types/
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter & yamllint
@@ -292,7 +298,7 @@ $(CRD_REF_DOCS): $(LOCALBIN)
 
 .PHONY: generate-ref
 generate-ref: generate fmt crd-ref-docs
-	$(CRD_REF_DOCS) --log-level=WARN --config=$(LOCALDIR)/docs/crd-ref-templates/config.yaml --source-path=$(LOCALDIR)/api/v1alpha1 --renderer=markdown --templates-dir=$(LOCALDIR)/docs/crd-ref-templates/markdown --output-path=$(LOCALDIR)/docs/api/markdown/ref.md
+	$(CRD_REF_DOCS) --log-level=WARN --max-depth=30 --config=$(LOCALDIR)/docs/crd-ref-templates/config.yaml --source-path=$(LOCALDIR)/api/v1alpha1 --renderer=markdown --templates-dir=$(LOCALDIR)/docs/crd-ref-templates/markdown --output-path=$(LOCALDIR)/docs/api/markdown/ref.md
 
 .PHONY: bundle
 bundle: manifests kustomize related-image-fs operator-sdk ## Generate bundle manifests and metadata, then validate generated files.

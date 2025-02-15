@@ -38,23 +38,25 @@ const (
 	AuthorizationReadyType = "Authorization"
 
 	// Feast condition reasons:
-	ReadyReason                 = "Ready"
-	FailedReason                = "FeatureStoreFailed"
-	OfflineStoreFailedReason    = "OfflineStoreDeploymentFailed"
-	OnlineStoreFailedReason     = "OnlineStoreDeploymentFailed"
-	RegistryFailedReason        = "RegistryDeploymentFailed"
-	UIFailedReason              = "UIDeploymentFailed"
-	ClientFailedReason          = "ClientDeploymentFailed"
-	KubernetesAuthzFailedReason = "KubernetesAuthorizationDeploymentFailed"
+	ReadyReason                  = "Ready"
+	FailedReason                 = "FeatureStoreFailed"
+	DeploymentNotAvailableReason = "DeploymentNotAvailable"
+	OfflineStoreFailedReason     = "OfflineStoreDeploymentFailed"
+	OnlineStoreFailedReason      = "OnlineStoreDeploymentFailed"
+	RegistryFailedReason         = "RegistryDeploymentFailed"
+	UIFailedReason               = "UIDeploymentFailed"
+	ClientFailedReason           = "ClientDeploymentFailed"
+	KubernetesAuthzFailedReason  = "KubernetesAuthorizationDeploymentFailed"
 
 	// Feast condition messages:
-	ReadyMessage                = "FeatureStore installation complete"
-	OfflineStoreReadyMessage    = "Offline Store installation complete"
-	OnlineStoreReadyMessage     = "Online Store installation complete"
-	RegistryReadyMessage        = "Registry installation complete"
-	UIReadyMessage              = "UI installation complete"
-	ClientReadyMessage          = "Client installation complete"
-	KubernetesAuthzReadyMessage = "Kubernetes authorization installation complete"
+	ReadyMessage                  = "FeatureStore installation complete"
+	OfflineStoreReadyMessage      = "Offline Store installation complete"
+	OnlineStoreReadyMessage       = "Online Store installation complete"
+	RegistryReadyMessage          = "Registry installation complete"
+	UIReadyMessage                = "UI installation complete"
+	ClientReadyMessage            = "Client installation complete"
+	KubernetesAuthzReadyMessage   = "Kubernetes authorization installation complete"
+	DeploymentNotAvailableMessage = "Deployment is not available"
 
 	// entity_key_serialization_version
 	SerializationVersion = 3
@@ -69,21 +71,25 @@ type FeatureStoreSpec struct {
 	AuthzConfig  *AuthzConfig          `json:"authz,omitempty"`
 }
 
-// FeatureStoreServices defines the desired feast services. An ephemeral registry is deployed by default.
+// FeatureStoreServices defines the desired feast services. An ephemeral onlineStore feature server is deployed by default.
 type FeatureStoreServices struct {
-	OfflineStore       *OfflineStore              `json:"offlineStore,omitempty"`
-	OnlineStore        *OnlineStore               `json:"onlineStore,omitempty"`
-	Registry           *Registry                  `json:"registry,omitempty"`
+	OfflineStore *OfflineStore `json:"offlineStore,omitempty"`
+	OnlineStore  *OnlineStore  `json:"onlineStore,omitempty"`
+	Registry     *Registry     `json:"registry,omitempty"`
+	// Creates a UI server container
 	UI                 *ServerConfigs             `json:"ui,omitempty"`
 	DeploymentStrategy *appsv1.DeploymentStrategy `json:"deploymentStrategy,omitempty"`
 	// Disable the 'feast repo initialization' initContainer
 	DisableInitContainers bool `json:"disableInitContainers,omitempty"`
+	// Volumes specifies the volumes to mount in the FeatureStore deployment. A corresponding `VolumeMount` should be added to whichever feast service(s) require access to said volume(s).
+	Volumes []corev1.Volume `json:"volumes,omitempty"`
 }
 
-// OfflineStore configures the deployed offline store service
+// OfflineStore configures the offline store service
 type OfflineStore struct {
-	ServerConfigs `json:",inline"`
-	Persistence   *OfflineStorePersistence `json:"persistence,omitempty"`
+	// Creates a remote offline server container
+	Server      *ServerConfigs           `json:"server,omitempty"`
+	Persistence *OfflineStorePersistence `json:"persistence,omitempty"`
 }
 
 // OfflineStorePersistence configures the persistence settings for the offline store service
@@ -108,7 +114,8 @@ var ValidOfflineStoreFilePersistenceTypes = []string{
 
 // OfflineStoreDBStorePersistence configures the DB store persistence for the offline store service
 type OfflineStoreDBStorePersistence struct {
-	// +kubebuilder:validation:Enum=snowflake.offline;bigquery;redshift;spark;postgres;trino;redis;athena;mssql
+	// Type of the persistence type you want to use.
+	// +kubebuilder:validation:Enum=snowflake.offline;bigquery;redshift;spark;postgres;trino;athena;mssql
 	Type string `json:"type"`
 	// Data store parameters should be placed as-is from the "feature_store.yaml" under the secret key. "registry_type" & "type" fields should be removed.
 	SecretRef corev1.LocalObjectReference `json:"secretRef"`
@@ -123,15 +130,15 @@ var ValidOfflineStoreDBStorePersistenceTypes = []string{
 	"spark",
 	"postgres",
 	"trino",
-	"redis",
 	"athena",
 	"mssql",
 }
 
-// OnlineStore configures the deployed online store service
+// OnlineStore configures the online store service
 type OnlineStore struct {
-	ServerConfigs `json:",inline"`
-	Persistence   *OnlineStorePersistence `json:"persistence,omitempty"`
+	// Creates a feature server container
+	Server      *ServerConfigs          `json:"server,omitempty"`
+	Persistence *OnlineStorePersistence `json:"persistence,omitempty"`
 }
 
 // OnlineStorePersistence configures the persistence settings for the online store service
@@ -141,7 +148,7 @@ type OnlineStorePersistence struct {
 	DBPersistence   *OnlineStoreDBStorePersistence `json:"store,omitempty"`
 }
 
-// OnlineStoreFilePersistence configures the file-based persistence for the offline store service
+// OnlineStoreFilePersistence configures the file-based persistence for the online store service
 // +kubebuilder:validation:XValidation:rule="(!has(self.pvc) && has(self.path)) ? self.path.startsWith('/') : true",message="Ephemeral stores must have absolute paths."
 // +kubebuilder:validation:XValidation:rule="(has(self.pvc) && has(self.path)) ? !self.path.startsWith('/') : true",message="PVC path must be a file name only, with no slashes."
 // +kubebuilder:validation:XValidation:rule="has(self.path) ? !(self.path.startsWith('s3://') || self.path.startsWith('gs://')) : true",message="Online store does not support S3 or GS buckets."
@@ -150,8 +157,9 @@ type OnlineStoreFilePersistence struct {
 	PvcConfig *PvcConfig `json:"pvc,omitempty"`
 }
 
-// OnlineStoreDBStorePersistence configures the DB store persistence for the offline store service
+// OnlineStoreDBStorePersistence configures the DB store persistence for the online store service
 type OnlineStoreDBStorePersistence struct {
+	// Type of the persistence type you want to use.
 	// +kubebuilder:validation:Enum=snowflake.online;redis;ikv;datastore;dynamodb;bigtable;postgres;cassandra;mysql;hazelcast;singlestore;hbase;elasticsearch;qdrant;couchbase;milvus
 	Type string `json:"type"`
 	// Data store parameters should be placed as-is from the "feature_store.yaml" under the secret key. "registry_type" & "type" fields should be removed.
@@ -179,10 +187,11 @@ var ValidOnlineStoreDBStorePersistenceTypes = []string{
 	"milvus",
 }
 
-// LocalRegistryConfig configures the deployed registry service
+// LocalRegistryConfig configures the registry service
 type LocalRegistryConfig struct {
-	ServerConfigs `json:",inline"`
-	Persistence   *RegistryPersistence `json:"persistence,omitempty"`
+	// Creates a registry server container
+	Server      *ServerConfigs       `json:"server,omitempty"`
+	Persistence *RegistryPersistence `json:"persistence,omitempty"`
 }
 
 // RegistryPersistence configures the persistence settings for the registry service
@@ -205,6 +214,7 @@ type RegistryFilePersistence struct {
 
 // RegistryDBStorePersistence configures the DB store persistence for the registry service
 type RegistryDBStorePersistence struct {
+	// Type of the persistence type you want to use.
 	// +kubebuilder:validation:Enum=sql;snowflake.registry
 	Type string `json:"type"`
 	// Data store parameters should be placed as-is from the "feature_store.yaml" under the secret key. "registry_type" & "type" fields should be removed.
@@ -214,8 +224,8 @@ type RegistryDBStorePersistence struct {
 }
 
 var ValidRegistryDBStorePersistenceTypes = []string{
-	"snowflake.registry",
 	"sql",
+	"snowflake.registry",
 }
 
 // PvcConfig defines the settings for a persistent file store based on PVCs.
@@ -275,14 +285,19 @@ type FeatureStoreRef struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-// ServerConfigs server-related configurations for a feast service
+// ServerConfigs creates a server for the feast service, with specified container configurations.
 type ServerConfigs struct {
 	ContainerConfigs `json:",inline"`
 	TLS              *TlsConfigs `json:"tls,omitempty"`
 	// LogLevel sets the logging level for the server
 	// Allowed values: "debug", "info", "warning", "error", "critical".
 	// +kubebuilder:validation:Enum=debug;info;warning;error;critical
-	LogLevel string `json:"logLevel,omitempty"`
+	LogLevel *string `json:"logLevel,omitempty"`
+	// VolumeMounts defines the list of volumes that should be mounted into the feast container.
+	// This allows attaching persistent storage, config files, secrets, or other resources
+	// required by the Feast components. Ensure that each volume mount has a corresponding
+	// volume definition in the Volumes field.
+	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
 }
 
 // ContainerConfigs k8s container settings for the server
